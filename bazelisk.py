@@ -66,7 +66,7 @@ TOOLS_BAZEL_PATH = "./tools/bazel"
 
 BAZEL_REAL = "BAZEL_REAL"
 
-BAZEL_UPSTREAM = "bazelbuild"
+BAZEL_UPSTREAM = "aspect-build"
 
 
 def decide_which_bazel_version_to_use():
@@ -80,12 +80,16 @@ def decide_which_bazel_version_to_use():
     # - workspace_root/.bazelversion exists -> read contents, that version.
     # - workspace_root/WORKSPACE contains a version -> that version. (TODO)
     # - fallback: latest release
-    if "USE_BAZEL_VERSION" in os.environ:
-        return os.environ["USE_BAZEL_VERSION"]
+    # if "USE_BAZEL_VERSION" in os.environ:
+    #     return os.environ["USE_BAZEL_VERSION"]
+    
+    if "USE_ASPECT_VERSION" in os.environ:
+        return os.environ["USE_ASPECT_VERSION"]
 
     workspace_root = find_workspace_root()
     if workspace_root:
-        bazelversion_path = os.path.join(workspace_root, ".bazelversion")
+        # bazelversion_path = os.path.join(workspace_root, ".bazelversion")
+        bazelversion_path = os.path.join(workspace_root, ".aspectversion")
         if os.path.exists(bazelversion_path):
             with open(bazelversion_path, "r") as f:
                 return f.read().strip()
@@ -221,23 +225,26 @@ def determine_bazel_filename(version):
         )
 
     filename_suffix = determine_executable_filename_suffix()
-    bazel_flavor = "bazel"
+    bazel_flavor = "aspect"
     if os.environ.get("BAZELISK_NOJDK", "0") != "0":
         bazel_flavor = "bazel_nojdk"
-    return "{}-{}-{}-{}{}".format(bazel_flavor, version, operating_system, machine, filename_suffix)
+        # https://github.com/aspect-build/aspect-cli/releases/download/v0.5.0/aspect-darwin_arm64
+    return "{}-{}_{}{}".format(bazel_flavor, operating_system, machine, filename_suffix)
 
 
 def get_supported_machine_archs(version, operating_system):
-    supported_machines = ["x86_64"]
+    supported_machines = ["amd64"]
+    if version[0] == "v":
+        version=version[1:]
     versions = version.split(".")[:2]
     if len(versions) == 2:
         # released version
         major, minor = int(versions[0]), int(versions[1])
         if (
             operating_system == "darwin"
-            and (major > 4 or major == 4 and minor >= 1)
+            and (major > 0 or major == 0 and minor >= 0)
             or operating_system == "linux"
-            and (major > 3 or major == 3 and minor >= 4)
+            and (major > 0 or major == 0 and minor >= 0)
         ):
             # Linux arm64 was supported since 3.4.0.
             # Darwin arm64 was supported since 4.1.0.
@@ -255,7 +262,7 @@ def get_supported_machine_archs(version, operating_system):
 def normalized_machine_arch_name():
     machine = platform.machine().lower()
     if machine == "amd64":
-        machine = "x86_64"
+        machine = "amd64"
     return machine
 
 
@@ -269,13 +276,20 @@ def determine_url(version, is_commit, bazel_filename):
 
     # Split version into base version and optional additional identifier.
     # Example: '5.2.0' -> ('5.2.0', None), '5.2.0rc1' -> ('5.2.0', 'rc1')
-    (version, rc) = re.match(r"(\d*\.\d*(?:\.\d*)?)(rc\d+)?", version).groups()
+    if version[0] == "v":
+        (version, rc) = re.match(r"v(\d*\.\d*(?:\.\d*)?)(rc\d+)?", version).groups()
+    else: 
+        (version, rc) = re.match(r"(\d*\.\d*(?:\.\d*)?)(rc\d+)?", version).groups()
 
-    if "BAZELISK_BASE_URL" in os.environ:
-        return "{}/{}/{}".format(os.environ["BAZELISK_BASE_URL"], version, bazel_filename)
+    if "ASPECT_BASE_URL" in os.environ:
+        return "{}/{}/{}".format(os.environ["ASPECT_BASE_URL"], version, bazel_filename)
     else:
-        return "https://releases.bazel.build/{}/{}/{}".format(
-            version, rc if rc else "release", bazel_filename
+        # return "https://releases.bazel.build/{}/{}/{}".format(
+        #     version, rc if rc else "release", bazel_filename
+        # )
+        # https://github.com/aspect-build/aspect-cli/releases/download/v0.5.0/aspect-darwin_arm64
+        return "https://github.com/aspect-build/aspect-cli/releases/download/v{}/{}".format(
+            version, bazel_filename
         )
 
 
@@ -292,7 +306,7 @@ def download_bazel_into_directory(version, is_commit, directory):
 
     filename_suffix = determine_executable_filename_suffix()
     bazel_directory_name = trim_suffix(bazel_filename, filename_suffix)
-    destination_dir = os.path.join(directory, bazel_directory_name, "bin")
+    destination_dir = os.path.join(directory, bazel_directory_name, version)
     maybe_makedirs(destination_dir)
 
     destination_path = os.path.join(destination_dir, "bazel" + filename_suffix)
@@ -300,43 +314,43 @@ def download_bazel_into_directory(version, is_commit, directory):
         download(bazel_url, destination_path)
         os.chmod(destination_path, 0o755)
 
-    sha256_path = destination_path + ".sha256"
-    expected_hash = ""
-    if not os.path.exists(sha256_path):
-        try:
-            download(bazel_url + ".sha256", sha256_path)
-        except HTTPError as e:
-            if e.code == 404:
-                sys.stderr.write(
-                    "The Bazel mirror does not have a checksum file; skipping checksum verification."
-                )
-                return destination_path
-            raise e
-    with open(sha256_path, "r") as sha_file:
-        expected_hash = sha_file.read().split()[0]
-    sha256_hash = hashlib.sha256()
-    with open(destination_path, "rb") as bazel_file:
-        for byte_block in iter(lambda: bazel_file.read(4096), b""):
-            sha256_hash.update(byte_block)
-    actual_hash = sha256_hash.hexdigest()
-    if actual_hash != expected_hash:
-        os.remove(destination_path)
-        os.remove(sha256_path)
-        print(
-            "The downloaded Bazel binary is corrupted. Expected SHA-256 {}, got {}. Please try again.".format(
-                expected_hash, actual_hash
-            )
-        )
-        # Exiting with a special exit code not used by Bazel, so the calling process may retry based on that.
-        # https://docs.bazel.build/versions/5.2.0/guide.html#what-exit-code-will-i-get
-        sys.exit(22)
+    # sha256_path = destination_path + ".sha256"
+    # expected_hash = ""
+    # if not os.path.exists(sha256_path):
+    #     try:
+    #         download(bazel_url + ".sha256", sha256_path)
+    #     except HTTPError as e:
+    #         if e.code == 404:
+    #             sys.stderr.write(
+    #                 "The Bazel mirror does not have a checksum file; skipping checksum verification."
+    #             )
+    #             return destination_path
+    #         raise e
+    # with open(sha256_path, "r") as sha_file:
+    #     expected_hash = sha_file.read().split()[0]
+    # sha256_hash = hashlib.sha256()
+    # with open(destination_path, "rb") as bazel_file:
+    #     for byte_block in iter(lambda: bazel_file.read(4096), b""):
+    #         sha256_hash.update(byte_block)
+    # actual_hash = sha256_hash.hexdigest()
+    # if actual_hash != expected_hash:
+    #     os.remove(destination_path)
+    #     os.remove(sha256_path)
+    #     print(
+    #         "The downloaded Bazel binary is corrupted. Expected SHA-256 {}, got {}. Please try again.".format(
+    #             expected_hash, actual_hash
+    #         )
+    #     )
+    #     # Exiting with a special exit code not used by Bazel, so the calling process may retry based on that.
+    #     # https://docs.bazel.build/versions/5.2.0/guide.html#what-exit-code-will-i-get
+    #     sys.exit(22)
     return destination_path
 
 
 def download(url, destination_path):
     sys.stderr.write("Downloading {}...\n".format(url))
     request = Request(url)
-    if "BAZELISK_BASE_URL" in os.environ:
+    if "ASPECT_BASE_URL" in os.environ:
         parts = urlparse(url)
         creds = None
         try:

@@ -13,28 +13,28 @@ func TestDarwinFallback(t *testing.T) {
 		wantAlterMachineName string
 	}{
 		{
-			name: "before 4.1.0, x86_64 do not fallback",
+			name: "before 4.1.0, amd64 do not fallback",
 			args: args{
-				machineName: "x86_64",
+				machineName: "amd64",
 				version:     "4.0.1",
 			},
-			wantAlterMachineName: "x86_64",
+			wantAlterMachineName: "amd64",
 		},
 		{
-			name: "since 4.1.0, x86_64 do not fallback either",
+			name: "since 4.1.0, amd64 do not fallback either",
 			args: args{
-				machineName: "x86_64",
+				machineName: "amd64",
 				version:     "4.1.0",
 			},
-			wantAlterMachineName: "x86_64",
+			wantAlterMachineName: "amd64",
 		},
 		{
-			name: "before 4.1.0, arm64 not supported, fallback to x86_64 on arm64",
+			name: "before 4.1.0, arm64 not supported, fallback to amd64 on arm64",
 			args: args{
 				machineName: "arm64",
 				version:     "4.0.1",
 			},
-			wantAlterMachineName: "x86_64",
+			wantAlterMachineName: "amd64",
 		},
 		{
 			name: "since 4.1.0, arm64 supported, do not fallback",

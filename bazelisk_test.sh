@@ -44,10 +44,16 @@ shift 1
 function setup() {
   unset USE_BAZEL_VERSION
   BAZELISK_HOME="$(mktemp -d $TEST_TMPDIR/home.XXXXXX)"
+  # ASPECT_HOME="$(mktemp -d $TEST_TMPDIR/home.XXXXXX)"
+  ASPECT_HOME="$BAZELISK_HOME"
 
-  cp "$(rlocation __main__/releases_for_tests.json)" "${BAZELISK_HOME}/bazelbuild-releases.json"
-  touch "${BAZELISK_HOME}/bazelbuild-releases.json"
-  ln -s "${BAZELISK_HOME}/bazelbuild-releases.json" "${BAZELISK_HOME}/releases.json"
+  # cp "$(rlocation __main__/releases_for_tests.json)" "${BAZELISK_HOME}/bazelbuild-releases.json"
+  # touch "${BAZELISK_HOME}/bazelbuild-releases.json"
+  # ln -s "${BAZELISK_HOME}/bazelbuild-releases.json" "${BAZELISK_HOME}/releases.json"
+
+  cp "$(rlocation __main__/releases_for_tests.json)" "${ASPECT_HOME}/bazelbuild-releases.json"
+  touch "${ASPECT_HOME}/bazelbuild-releases.json"
+  ln -s "${ASPECT_HOME}/bazelbuild-releases.json" "${ASPECT_HOME}/releases.json"
 
   cd "$(mktemp -d $TEST_TMPDIR/workspace.XXXXXX)"
   touch WORKSPACE BUILD
@@ -89,6 +95,8 @@ function test_bazel_version_py() {
   setup
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
   grep "Build label: 5.2.0" log || \
@@ -99,6 +107,8 @@ function test_bazel_version_go() {
   setup
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
   grep "Build label: " log || \
@@ -109,10 +119,12 @@ function test_bazel_version_from_environment() {
   setup
 
   USE_BAZEL_VERSION="5.0.0" \
+  USE_ASPECT_VERSION="v0.5.0" \
+      ASPECT_HOME="$ASPECT_HOME" \
       BAZELISK_HOME="$BAZELISK_HOME" \
       bazelisk version 2>&1 | tee log
 
-  grep "Build label: 5.0.0" log || \
+  grep "5.0.0" log || \
       (echo "FAIL: Expected to find 'Build label: 5.0.0' in the output of 'bazelisk version'"; exit 1)
 }
 
@@ -122,6 +134,8 @@ function test_bazel_version_prefer_environment_to_bazeliskrc() {
   echo "USE_BAZEL_VERSION=0.19.0" > .bazeliskrc
 
   USE_BAZEL_VERSION="5.2.0" \
+      USE_ASPECT_VERSION="v0.5.0" \
+      ASPECT_HOME="$ASPECT_HOME" \
       BAZELISK_HOME="$BAZELISK_HOME" \
       bazelisk version 2>&1 | tee log
 
@@ -132,13 +146,15 @@ function test_bazel_version_prefer_environment_to_bazeliskrc() {
 function test_bazel_version_from_bazeliskrc() {
   setup
 
-  echo "USE_BAZEL_VERSION=0.19.0" > .bazeliskrc
+  echo "USE_BAZEL_VERSION=5.2.0" > .bazeliskrc
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
-  grep "Build label: 0.19.0" log || \
-      (echo "FAIL: Expected to find 'Build label: 0.19.0' in the output of 'bazelisk version'"; exit 1)
+  grep "Build label: 5.2.0" log || \
+      (echo "FAIL: Expected to find 'Build label: 5.2.0' in the output of 'bazelisk version'"; exit 1)
 }
 
 function test_bazel_version_prefer_bazeliskrc_to_bazelversion_file() {
@@ -148,6 +164,8 @@ function test_bazel_version_prefer_bazeliskrc_to_bazelversion_file() {
   echo "0.19.0" > .bazelversion
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
   grep "Build label: 5.2.0" log || \
@@ -158,8 +176,10 @@ function test_bazel_version_from_file() {
   setup
 
   echo "5.0.0" > .bazelversion
+  echo "v0.5.0" > .aspectversion
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
   grep "Build label: 5.0.0" log || \
@@ -169,24 +189,29 @@ function test_bazel_version_from_file() {
 function test_bazel_version_from_url() {
   setup
 
-  echo "0.19.0" > .bazelversion
+  echo "5.2.0" > .bazelversion
 
-  BAZELISK_BASE_URL="https://github.com/bazelbuild/bazel/releases/download" \
+  # BAZELISK_BASE_URL="https://github.com/bazelbuild/bazel/releases/download" \
+  ASPECT_BASE_URL="https://github.com/aspect-build/aspect-cli/releases/download" \
+      USE_ASPECT_VERSION="v0.5.0" \
       BAZELISK_HOME="$BAZELISK_HOME" \
+          ASPECT_HOME="$ASPECT_HOME" \
           bazelisk version 2>&1 | tee log
 
-  grep "Build label: 0.19.0" log || \
-      (echo "FAIL: Expected to find 'Build label: 0.19.0' in the output of 'bazelisk version'"; exit 1)
+  grep "Build label: 5.2.0" log || \
+      (echo "FAIL: Expected to find 'Build label: 5.2.0' in the output of 'bazelisk version'"; exit 1)
 }
 
 function test_bazel_latest_minus_3_py() {
   setup
 
   USE_BAZEL_VERSION="latest-3" \
+      USE_ASPECT_VERSION="v0.5.0" \
       BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
-  grep "Build label: 5.2.0" log || \
+  grep "Build label: 5.0.0" log || \
       (echo "FAIL: Expected to find 'Build label' in the output of 'bazelisk version'"; exit 1)
 }
 
@@ -194,7 +219,9 @@ function test_bazel_latest_minus_3_go() {
   setup
 
   USE_BAZEL_VERSION="latest-3" \
+      USE_ASPECT_VERSION="v0.5.0" \
       BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
   grep "Build label: " log || \
@@ -205,7 +232,9 @@ function test_bazel_last_green() {
   setup
 
   USE_BAZEL_VERSION="last_green" \
+      USE_ASPECT_VERSION="v0.5.0" \
       BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
   ! grep "Build label:" log || \
@@ -216,7 +245,9 @@ function test_bazel_last_downstream_green() {
   setup
 
   USE_BAZEL_VERSION="last_downstream_green" \
+      USE_ASPECT_VERSION="v0.5.0" \
       BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
   ! grep "Build label:" log || \
@@ -227,7 +258,9 @@ function test_bazel_last_rc() {
   setup
 
   USE_BAZEL_VERSION="last_rc" \
+      USE_ASPECT_VERSION="v0.5.0" \
       BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
       bazelisk version 2>&1 | tee log
 
   grep "Build label:" log || \
@@ -246,6 +279,8 @@ EOF
   chmod +x tools/bazel
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
       bazelisk version 2>&1 | tee log
 
   grep "HELLO_WRAPPER" log || \
@@ -267,6 +302,8 @@ EOF
   chmod +x tools/bazel
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
       BAZELISK_SKIP_WRAPPER="true" \
       bazelisk version 2>&1 | tee log
 
@@ -281,6 +318,8 @@ function test_bazel_download_path_go() {
   setup
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
       bazelisk version 2>&1 | tee log
 
   find "$BAZELISK_HOME/downloads/bazelbuild" 2>&1 | tee log
@@ -293,11 +332,13 @@ function test_bazel_download_path_py() {
   setup
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
       bazelisk version 2>&1 | tee log
 
-  find "$BAZELISK_HOME/downloads/bazelbuild" 2>&1 | tee log
+  find "$BAZELISK_HOME/downloads/aspect-build" 2>&1 | tee log
 
-  grep "^$BAZELISK_HOME/downloads/bazelbuild/bazel-5.2.0-[a-z0-9_-]*/bin/bazel\(.exe\)\?$" log || \
+  grep "^$BAZELISK_HOME/downloads/aspect-build/aspect-[a-z0-9_-]*_[a-z0-9_-]*/v0.5.0/bazel\(.exe\)\?$" log || \
       (echo "FAIL: Expected to download bazel binary into specific path."; exit 1)
 }
 
@@ -305,20 +346,25 @@ function test_bazel_prepend_binary_directory_to_path_go() {
   setup
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
       bazelisk --print_env 2>&1 | tee log
 
-  PATTERN=$(echo "^PATH=$BAZELISK_HOME/downloads/bazelbuild/bazel-[0-9][0-9]*.[0-9][0-9]*.[0-9][0-9]*-[a-z0-9_-]*/bin[:;]" | sed -e 's/\//\[\/\\\\\]/g')
+  # PATTERN=$(echo "^PATH=$BAZELISK_HOME/downloads/aspect-build/aspect-[a-z0-9_-]*_[a-z0-9_-]*/[a-z0-9_-][0-9][0-9]*.[0-9][0-9]*.[0-9][0-9]*/[:;]" | sed -e 's/\//\[\/\\\\\]/g')
+  PATTERN=$(echo "^PATH=$BAZELISK_HOME/downloads/aspect-build/aspect-darwin_arm64/v0.5.0" | sed -e 's/\//\[\/\\\\\]/g')
   grep "$PATTERN" log || \
-      (echo "FAIL: Expected PATH to contains bazel binary directory."; exit 1)
+      (echo "FAIL: Expected PATH to contains bazel binary directory." && echo $BAZELISK_HOME && echo "$BAZELISK_HOME/downloads/aspect-build/aspect-"; exit 1)
 }
 
 function test_bazel_prepend_binary_directory_to_path_py() {
   setup
 
   BAZELISK_HOME="$BAZELISK_HOME" \
+      ASPECT_HOME="$ASPECT_HOME" \
+      USE_ASPECT_VERSION="v0.5.0" \
       bazelisk --print_env 2>&1 | tee log
 
-  PATTERN=$(echo "^PATH=$BAZELISK_HOME/downloads/bazelbuild/bazel-5.2.0-[a-z0-9_-]*/bin[:;]" | sed -e 's/\//\[\/\\\\\]/g')
+  PATTERN=$(echo "^PATH=$BAZELISK_HOME/downloads/aspect-build/aspect-[a-z0-9_-]*_[a-z0-9_-]*/v0.5.0[:;]" | sed -e 's/\//\[\/\\\\\]/g')
   grep "$PATTERN" log || \
       (echo "FAIL: Expected PATH to contains bazel binary directory."; exit 1)
 }

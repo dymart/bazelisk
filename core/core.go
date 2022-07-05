@@ -43,7 +43,8 @@ var (
 func RunBazelisk(args []string, repos *Repositories) (int, error) {
 	httputil.UserAgent = getUserAgent()
 
-	bazeliskHome := GetEnvOrConfig("BAZELISK_HOME")
+	// bazeliskHome := GetEnvOrConfig("BAZELISK_HOME")
+	bazeliskHome := GetEnvOrConfig("ASPECT_HOME")
 	if len(bazeliskHome) == 0 {
 		userCacheDir, err := os.UserCacheDir()
 		if err != nil {
@@ -194,7 +195,8 @@ func GetEnvOrConfig(name string) string {
 		if workspaceRoot == "" {
 			return
 		}
-		rcFilePath := filepath.Join(workspaceRoot, ".bazeliskrc")
+		// rcFilePath := filepath.Join(workspaceRoot, ".bazeliskrc")
+		rcFilePath := filepath.Join(workspaceRoot, ".aspectisk")
 		contents, err := ioutil.ReadFile(rcFilePath)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -262,7 +264,8 @@ func getBazelVersion() (string, error) {
 	// - workspace_root/.bazelversion exists -> read contents, that version.
 	// - workspace_root/WORKSPACE contains a version -> that version. (TODO)
 	// - fallback: latest release
-	bazelVersion := GetEnvOrConfig("USE_BAZEL_VERSION")
+	// bazelVersion := GetEnvOrConfig("USE_BAZEL_VERSION")
+	bazelVersion := GetEnvOrConfig("USE_ASPECT_VERSION")
 	if len(bazelVersion) != 0 {
 		return bazelVersion, nil
 	}
@@ -274,7 +277,7 @@ func getBazelVersion() (string, error) {
 
 	workspaceRoot := findWorkspaceRoot(workingDirectory)
 	if len(workspaceRoot) != 0 {
-		bazelVersionPath := filepath.Join(workspaceRoot, ".bazelversion")
+		bazelVersionPath := filepath.Join(workspaceRoot, ".aspectversion")
 		if _, err := os.Stat(bazelVersionPath); err == nil {
 			f, err := os.Open(bazelVersionPath)
 			if err != nil {
@@ -321,7 +324,8 @@ func downloadBazel(fork string, version string, baseDirectory string, repos *Rep
 	}
 
 	destFile := "bazel" + platforms.DetermineExecutableFilenameSuffix()
-	destinationDir := filepath.Join(baseDirectory, pathSegment, "bin")
+	destinationDir := filepath.Join(baseDirectory, pathSegment, version)
+	// destinationDir := filepath.Join(baseDirectory, pathSegment, "bin")
 
 	if url := GetEnvOrConfig(BaseURLEnv); url != "" {
 		return repos.DownloadFromBaseURL(url, version, destinationDir, destFile)

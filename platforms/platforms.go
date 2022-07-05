@@ -35,7 +35,7 @@ func DetermineBazelFilename(version string, includeSuffix bool) (string, error) 
 	var machineName string
 	switch runtime.GOARCH {
 	case "amd64":
-		machineName = "x86_64"
+		machineName = "amd64"
 	case "arm64":
 		machineName = "arm64"
 	default:
@@ -50,16 +50,17 @@ func DetermineBazelFilename(version string, includeSuffix bool) (string, error) 
 		return "", fmt.Errorf("unsupported operating system \"%s\", must be Linux, macOS or Windows", runtime.GOOS)
 	}
 
-	if osName == "darwin" {
-		machineName = DarwinFallback(machineName, version)
-	}
+	// if osName == "darwin" {
+	// 	machineName = DarwinFallback(machineName, version)
+	// }
 
 	var filenameSuffix string
 	if includeSuffix {
 		filenameSuffix = DetermineExecutableFilenameSuffix()
 	}
 
-	return fmt.Sprintf("bazel-%s-%s-%s%s", version, osName, machineName, filenameSuffix), nil
+	// return fmt.Sprintf("aspect-%s-%s-%s%s", version, osName, machineName, filenameSuffix), nil
+	return fmt.Sprintf("aspect-%s_%s%s", osName, machineName, filenameSuffix), nil
 }
 
 // DarwinFallback Darwin arm64 was supported since 4.1.0, before 4.1.0, fall back to x86_64
@@ -73,7 +74,7 @@ func DarwinFallback(machineName string, version string) (alterMachineName string
 
 	if machineName == "arm64" && v.LessThan(armSupportVer) {
 		log.Printf("WARN: Fallback to x86_64 because arm64 is not supported on Apple Silicon until 4.1.0")
-		return "x86_64"
+		return "amd64"
 	}
 	return machineName
 }

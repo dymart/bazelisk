@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	candidateBaseURL    = "https://releases.bazel.build"
+	// candidateBaseURL    = "https://releases.bazel.build"
+	candidateBaseURL    = "https://github.com/aspect-build/aspect-cli/releases/download"
 	nonCandidateBaseURL = "https://storage.googleapis.com/bazel-builds/artifacts"
 	lastGreenBaseURL    = "https://storage.googleapis.com/bazel-untrusted-builds/last_green_commit/"
 )
@@ -126,7 +127,8 @@ func (gcs *GCSRepo) DownloadRelease(version, destDir, destFile string) (string, 
 		return "", err
 	}
 
-	url := fmt.Sprintf("%s/%s/release/%s", candidateBaseURL, version, srcFile)
+	// url := fmt.Sprintf("%s/%s/release/%s", candidateBaseURL, version, srcFile)
+	url := fmt.Sprintf("%s/%s/%s", candidateBaseURL, version, srcFile)
 	return httputil.DownloadBinary(url, destDir, destFile)
 }
 

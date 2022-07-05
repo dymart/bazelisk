@@ -13,10 +13,12 @@ import (
 
 const (
 	// BazelUpstream contains the name of the official Bazel GitHub organization.
-	BazelUpstream = "bazelbuild"
+	// BazelUpstream = "bazelbuild"
+	BazelUpstream = "aspect-build"
 )
 
 var (
+	releasePatternAspect = regexp.MustCompile(`^v(\d+)\.(x|\d+\.\d+)$`)
 	releasePattern       = regexp.MustCompile(`^(\d+)\.(x|\d+\.\d+)$`)
 	patchPattern         = regexp.MustCompile(`^(\d+\.\d+\.\d+)-([\w\d]+)$`)
 	candidatePattern     = regexp.MustCompile(`^(\d+\.\d+\.\d+)rc(\d+)$`)
@@ -37,6 +39,16 @@ func Parse(fork, version string) (*Info, error) {
 	vi := &Info{Fork: fork, Value: version, IsFork: isFork(fork)}
 
 	if m := releasePattern.FindStringSubmatch(version); m != nil {
+		vi.IsRelease = true
+		if m[2] == "x" {
+			track, err := strconv.Atoi(m[1])
+			if err != nil {
+				return nil, fmt.Errorf("invalid version %q, expected something like '5.2.1' or '5.x'", version)
+			}
+			vi.IsRelative = true
+			vi.TrackRestriction = track
+		}
+	} else if m := releasePatternAspect.FindStringSubmatch(version); m != nil {
 		vi.IsRelease = true
 		if m[2] == "x" {
 			track, err := strconv.Atoi(m[1])
